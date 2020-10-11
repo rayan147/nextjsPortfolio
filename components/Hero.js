@@ -1,13 +1,12 @@
 import React from 'react'
-import {Typography,Grid}from '@material-ui/core';
+import {Typography,Grid,Box}from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import { FcCommandLine } from "react-icons/fc";
-
+import { FcLinux } from "react-icons/fc";
 const useStyles = makeStyles((theme) => ({
   root: {
     flexGrow: 1,
     marginTop:'11rem',
-  
   },
  
   control: {
@@ -24,11 +23,15 @@ const Hero = ()=>{
       justify="center"
       alignItems="center" spacing={2}>
       <Grid item xs={11} lg={5} md={10} sm={10}>
-      <Typography variant="h3" component="h3" gutterBottom >
-       Hello There !
+      <Typography variant="h2" component="h2" gutterBottom >
+        
+       Hello There !! <FcLinux/>
+      
       </Typography>
         <Typography variant="h4" gutterBottom>
-      I'm Rayan Ramirez, a self-taught JavaScript developer &&  Release Engineer. <FcCommandLine size="2rem" /> 
+        <Box mt={5}>
+      I'm Rayan Ramirez, a self-taught JavaScript developer & Release Engineer. <FcCommandLine size="2rem" /> 
+      </Box> 
       </Typography>
       </Grid>
    </Grid>
@@ -36,4 +39,4 @@ const Hero = ()=>{
     )
 }
 
-export default Hero 
+export default React.memo(Hero)

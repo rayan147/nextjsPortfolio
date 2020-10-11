@@ -7,6 +7,7 @@ import CssBaseline from '@material-ui/core/CssBaseline';
 import { createMuiTheme } from '@material-ui/core/styles';
 import { BsMoon } from "react-icons/bs";
 import  useToggle from '../hooks/useToggle'
+import '../styles/globals.css'
 export default function MyApp(props) {
   const { Component, pageProps } = props;
   const [darkMode, setDarkMode] =useToggle()
@@ -30,8 +31,8 @@ export default function MyApp(props) {
         <meta name="viewport" content="minimum-scale=1, initial-scale=1, width=device-width" />
       </Head>
       <ThemeProvider theme={theme}>
-        <Box display="flex" mt={3} p={1}> 
-    
+        <Box display="flex" flexDirection="row-reverse" mt={3} p={1}> 
+    <Box >
     <FormControlLabel
           value="end"
   control={<Switch checked={darkMode} onChange={setDarkMode} /> }
@@ -39,6 +40,7 @@ export default function MyApp(props) {
           labelPlacement="end"
         />
     
+    </Box>
     </Box>
         {/* CssBaseline kickstart an elegant, consistent, and simple baseline to build upon. */}
         <CssBaseline />
