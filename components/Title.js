@@ -7,7 +7,7 @@ const useStyles = makeStyles({
     width: '100%',
     maxWidth: 500,
     justifyContent:'center',
-    marginBottom:'4rem'
+    marginBottom:'3rem'
   },
 });
 
@@ -17,7 +17,7 @@ const  Title =({title}) =>{
   return (
     <div className={classes.root}>
       
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h5" gutterBottom >
       {title}
       </Typography>
      

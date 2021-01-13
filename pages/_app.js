@@ -4,7 +4,7 @@ import Head from 'next/head';
 import { ThemeProvider } from '@material-ui/core/styles';
 import { Switch, Box,FormControlLabel } from '@material-ui/core';
 import CssBaseline from '@material-ui/core/CssBaseline';
-import { createMuiTheme } from '@material-ui/core/styles';
+import { createMuiTheme,responsiveFontSizes  } from '@material-ui/core/styles';
 import { BsMoon } from "react-icons/bs";
 import  useToggle from '../hooks/useToggle'
 import '../styles/globals.css'
@@ -19,15 +19,16 @@ export default function MyApp(props) {
       jssStyles.parentElement.removeChild(jssStyles);
     }
   }, []);
-  const theme = createMuiTheme({
+  let theme = createMuiTheme({
     palette: {
      type: darkMode ? 'dark' :'light'
     },
   });
+  theme = responsiveFontSizes(theme);
   return (
     <>
       <Head>
-        <title>My page</title>
+        <title>Welcome</title>
         <meta name="viewport" content="minimum-scale=1, initial-scale=1, width=device-width" />
       </Head>
       <ThemeProvider theme={theme}>

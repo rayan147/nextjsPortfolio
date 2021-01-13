@@ -8,10 +8,7 @@ const useStyles = makeStyles((theme) => ({
     flexGrow: 1,
     marginTop:'11rem',
   },
- 
-  control: {
-    padding: theme.spacing(2),
-  },
+
 }));
 const Hero = ()=>{
   const classes = useStyles();
@@ -30,7 +27,7 @@ const Hero = ()=>{
       </Typography>
         <Typography variant="h4" gutterBottom>
         <Box mt={5}>
-      I'm Rayan Ramirez, a self-taught JavaScript developer & Release Engineer. <FcCommandLine size="2rem" /> 
+      I'm Rayan Ramirez, a self-taught JavaScript developer and Release Engineer. <FcCommandLine size="2rem" /> 
       </Box> 
       </Typography>
       </Grid>

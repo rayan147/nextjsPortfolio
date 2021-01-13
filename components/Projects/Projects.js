@@ -24,12 +24,21 @@ const useStyles = makeStyles((theme) => ({
   
   },
 }));
-const trackExpense ={
-   name:'Track Expense',
-   desc:'...dndnggngdngndgnijeiit',
-   techs:["AWS",'Reactjs','Nextjs','Nodejs','Material-UI'],
-   github:'https://github.com/rayan147',
-   demo:'https://github.com/rayan147'
+const cryptoboard={
+   name:"Cryptoboard",
+   desc:'Display the top 20 cryptocurrcies by market cap ',
+   techs:["Cloudfront","S3","Route53",'Nextjs','Serverless Framework'],
+   github:'https://github.com/rayan147/cryptoboard',
+   demo:'https://cryptoboard.rayanr.com/',
+   img:"https://myprojectspictures147.s3.amazonaws.com/cryptoboard.png"
+}
+const tasktracker ={
+  name:"Task Tracker",
+  desc:"his is task tracker to help me organize my tickets and deployment at work feel free to clone and use it. you could drag and drop lists/cards",
+  techs:["Reactjs","React Router","S3","Amplify","Redux","Materail-iu","React-icon"],
+  github:"https://github.com/rayan147/tasktracker-",
+  demo:"https://task.rayanr.com/",
+  img:"https://myprojectspictures147.s3.amazonaws.com/tasktracker.png"
 }
 const  Project = () =>{
   const classes = useStyles();
@@ -47,13 +56,38 @@ const  Project = () =>{
       <Grid item xs={12}>
          <Title title="Projects"/>
         <Grid container justify="center" spacing={4}>
-          {[0, 1, 2].map((value) => (
-            <Grid key={value} item>
+         
+            <Grid item>
               <Paper className={classes.paper} >
-              <ProjectCard  {...trackExpense}/>
+              <ProjectCard  {...cryptoboard}/>
               </Paper>
             </Grid>
-          ))}
+            <Grid item>
+              <Paper className={classes.paper} >
+              <ProjectCard  {...tasktracker}/>
+              </Paper>
+            </Grid>
+            <Grid item>
+              <Paper className={classes.paper} >
+              {/* <ProjectCard  {...trackExpense}/> */}
+              </Paper>
+            </Grid>
+            <Grid item>
+              <Paper className={classes.paper} >
+              {/* <ProjectCard  {...trackExpense}/> */}
+              </Paper>
+            </Grid>
+            <Grid item>
+              <Paper className={classes.paper} >
+              {/* <ProjectCard  {...trackExpense}/> */}
+              </Paper>
+            </Grid>
+            <Grid item>
+              <Paper className={classes.paper} >
+              {/* <ProjectCard  {...trackExpense}/> */}
+              </Paper>
+            </Grid>
+        
         </Grid>
     </Grid>
     </Grid>

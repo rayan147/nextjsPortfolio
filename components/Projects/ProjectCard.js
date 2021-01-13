@@ -23,7 +23,7 @@ const  ProjectCard =(props) =>{
   const classes = useStyles();
  
 
-const {name,demo,github,techs,desc} = props
+const {name,demo,github,techs,desc,img} = props
 const techSkill =(tech,index)=><Box key={index}>{tech}</Box>
 
   
@@ -35,8 +35,8 @@ const techSkill =(tech,index)=><Box key={index}>{tech}</Box>
       <CardActionArea>
         <CardMedia
           className={classes.media}
-          image="https://images.unsplash.com/photo-1589394434125-8ae8b2b3d853?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=800&q=60"
-          title="Contemplative Reptile"
+          image={img}
+          title={name}
         />
         <CardContent>
           <Typography gutterBottom variant="h5" component="h2">
@@ -59,7 +59,7 @@ const techSkill =(tech,index)=><Box key={index}>{tech}</Box>
         </a>
         <a href={demo} target='blank'>
         <Button size="small" color="primary">
-          Demon
+          Demo
         </Button>
         </a>  
        
