@@ -67,26 +67,26 @@ const  Project = () =>{
               <ProjectCard  {...tasktracker}/>
               </Paper>
             </Grid>
-            <Grid item>
+            {/* <Grid item>
               <Paper className={classes.paper} >
-              {/* <ProjectCard  {...trackExpense}/> */}
+              <ProjectCard  {...trackExpense}/>
+              </Paper>
+            </Grid> */}
+            {/* <Grid item>
+              <Paper className={classes.paper} >
+              <ProjectCard  {...trackExpense}/>
               </Paper>
             </Grid>
             <Grid item>
               <Paper className={classes.paper} >
-              {/* <ProjectCard  {...trackExpense}/> */}
+              <ProjectCard  {...trackExpense}/>
               </Paper>
             </Grid>
             <Grid item>
               <Paper className={classes.paper} >
-              {/* <ProjectCard  {...trackExpense}/> */}
+              <ProjectCard  {...trackExpense}/>
               </Paper>
-            </Grid>
-            <Grid item>
-              <Paper className={classes.paper} >
-              {/* <ProjectCard  {...trackExpense}/> */}
-              </Paper>
-            </Grid>
+            </Grid> */}
         
         </Grid>
     </Grid>

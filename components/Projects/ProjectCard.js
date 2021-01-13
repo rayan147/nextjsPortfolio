@@ -5,13 +5,13 @@ import CardActionArea from '@material-ui/core/CardActionArea';
 import CardActions from '@material-ui/core/CardActions';
 import CardContent from '@material-ui/core/CardContent';
 import CardMedia from '@material-ui/core/CardMedia';
-import {Box,List,Button, useEventCallback} from '@material-ui/core';
+import {Box,Button} from '@material-ui/core';
 import Typography from '@material-ui/core/Typography';
 import {GoMarkGithub } from "react-icons/go";
 
 const useStyles = makeStyles({
   root: {
-    maxWidth: 345,
+    maxWidth: 645,
   },
   media: {
     height: 140,
@@ -24,7 +24,7 @@ const  ProjectCard =(props) =>{
  
 
 const {name,demo,github,techs,desc,img} = props
-const techSkill =(tech,index)=><Box key={index}>{tech}</Box>
+const techSkill =(tech,index)=><Box  p={.5} mx={1}key={index}>{tech}</Box>
 
   
 
@@ -47,9 +47,9 @@ const techSkill =(tech,index)=><Box key={index}>{tech}</Box>
           </Typography>
         </CardContent>
       </CardActionArea>
-      <CardActions>
+      <Box display="flex" flexWrap="wrap" >
       {techs.map(techSkill)}
-      </CardActions>
+      </Box>
       <CardActions>
         
         <a href={github} target='blank'>
