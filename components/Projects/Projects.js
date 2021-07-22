@@ -2,13 +2,13 @@ import React from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import {Grid,Paper,Box} from '@material-ui/core';
 import ProjectCard from './ProjectCard'
-import Title from '../Title';
+import Title from '../Title/Title';
 
 
 const useStyles = makeStyles((theme) => ({
   root: {
     flexGrow: 1,
-    marginTop:'10rem',
+    marginTop:'1rem',
     marginBottom:'10rem'
   },
   paper: {
@@ -45,52 +45,24 @@ const  Project = () =>{
 
   
   return (
-    <Grid 
-    container 
-    direction="row"
-    justify="center"
-    alignItems="center"
-    className={classes.root} 
-    spacing={2}>
-    
-      <Grid item xs={12}>
-         <Title title="Projects"/>
-        <Grid container justify="center" spacing={4}>
-         
-            <Grid item>
-              <Paper className={classes.paper} >
-              <ProjectCard  {...cryptoboard}/>
-              </Paper>
-            </Grid>
-            <Grid item>
-              <Paper className={classes.paper} >
-              <ProjectCard  {...tasktracker}/>
-              </Paper>
-            </Grid>
-            {/* <Grid item>
-              <Paper className={classes.paper} >
-              <ProjectCard  {...trackExpense}/>
-              </Paper>
-            </Grid> */}
-            {/* <Grid item>
-              <Paper className={classes.paper} >
-              <ProjectCard  {...trackExpense}/>
-              </Paper>
-            </Grid>
-            <Grid item>
-              <Paper className={classes.paper} >
-              <ProjectCard  {...trackExpense}/>
-              </Paper>
-            </Grid>
-            <Grid item>
-              <Paper className={classes.paper} >
-              <ProjectCard  {...trackExpense}/>
-              </Paper>
-            </Grid> */}
-        
+    <Grid container justify="center">  
+      <Grid>
+       <Title title="PROJECTS"/>
+      </Grid> 
+      <Grid container justify="center" className={classes.root}   alignItems="center" direction="row" spacing={5}>
+        <Grid item>
+          <Paper className={classes.paper} >
+            <ProjectCard  {...cryptoboard}/>
+          </Paper>
         </Grid>
+       <Grid item>
+         <Paper className={classes.paper} >
+            <ProjectCard  {...tasktracker}/>
+        </Paper>
+       </Grid>  
+      </Grid>
     </Grid>
-    </Grid>
+    
   );
 }
 export default React.memo(Project)
