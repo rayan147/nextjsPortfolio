@@ -104,36 +104,35 @@ const HttpStatusCodes = {
   305: "Use Proxy"
 };
 
-const toCloudFrontHeaders = (headers, originalHeaders) => {
+const toCloudFrontHeaders = (headers, headerNames, originalHeaders) => {
   const result = {};
   const lowerCaseOriginalHeaders = {};
   Object.entries(originalHeaders).forEach(([header, value]) => {
     lowerCaseOriginalHeaders[header.toLowerCase()] = value;
   });
 
-  Object.keys(headers).forEach((headerName) => {
-    const lowerCaseHeaderName = headerName.toLowerCase();
-    const headerValue = headers[headerName];
+  Object.entries(headers).forEach(([headerName, headerValue]) => {
+    const headerKey = headerName.toLowerCase();
+    headerName = headerNames[headerKey] || headerName;
 
-    if (readOnlyCloudFrontHeaders[lowerCaseHeaderName]) {
-      if (lowerCaseOriginalHeaders[lowerCaseHeaderName]) {
-        result[lowerCaseHeaderName] =
-          lowerCaseOriginalHeaders[lowerCaseHeaderName];
+    if (readOnlyCloudFrontHeaders[headerKey]) {
+      if (lowerCaseOriginalHeaders[headerKey]) {
+        result[headerKey] = lowerCaseOriginalHeaders[headerKey];
       }
       return;
     }
 
-    result[lowerCaseHeaderName] = [];
+    result[headerKey] = [];
 
     if (headerValue instanceof Array) {
       headerValue.forEach((val) => {
-        result[lowerCaseHeaderName].push({
+        result[headerKey].push({
           key: headerName,
           value: val.toString()
         });
       });
     } else {
-      result[lowerCaseHeaderName].push({
+      result[headerKey].push({
         key: headerName,
         value: headerValue.toString()
       });
@@ -162,7 +161,10 @@ const defaultOptions = {
   enableHTTPCompression: false
 };
 
-const handler = (event, { enableHTTPCompression } = defaultOptions) => {
+const handler$1 = (
+  event,
+  { enableHTTPCompression, rewrittenUri } = defaultOptions
+) => {
   const { request: cfRequest, response: cfResponse = { headers: {} } } = event;
 
   const response = {
@@ -172,7 +174,7 @@ const handler = (event, { enableHTTPCompression } = defaultOptions) => {
   const newStream = new Stream__default['default'].Readable();
 
   const req = Object.assign(newStream, http__default['default'].IncomingMessage.prototype);
-  req.url = cfRequest.uri;
+  req.url = rewrittenUri || cfRequest.uri;
   req.method = cfRequest.method;
   req.rawHeaders = [];
   req.headers = {};
@@ -226,6 +228,7 @@ const handler = (event, { enableHTTPCompression } = defaultOptions) => {
   });
 
   res.headers = {};
+  const headerNames = {};
   res.writeHead = (status, headers) => {
     response.status = status;
 
@@ -268,7 +271,11 @@ const handler = (event, { enableHTTPCompression } = defaultOptions) => {
           : Buffer.from(response.body).toString("base64");
       }
 
-      response.headers = toCloudFrontHeaders(res.headers, cfResponse.headers);
+      response.headers = toCloudFrontHeaders(
+        res.headers,
+        headerNames,
+        cfResponse.headers
+      );
 
       if (shouldGzip) {
         response.headers["content-encoding"] = [
@@ -281,6 +288,7 @@ const handler = (event, { enableHTTPCompression } = defaultOptions) => {
 
   res.setHeader = (name, value) => {
     res.headers[name.toLowerCase()] = value;
+    headerNames[name.toLowerCase()] = name;
   };
   res.removeHeader = (name) => {
     delete res.headers[name.toLowerCase()];
@@ -302,9 +310,78 @@ const handler = (event, { enableHTTPCompression } = defaultOptions) => {
   };
 };
 
-handler.SPECIAL_NODE_HEADERS = specialNodeHeaders;
+handler$1.SPECIAL_NODE_HEADERS = specialNodeHeaders;
 
-var nextAwsCloudfront = handler;
+var nextAwsCloudfront = handler$1;
+
+// Blacklisted or read-only headers in CloudFront
+const ignoredHeaders = [
+    "connection",
+    "expect",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "proxy-connection",
+    "trailer",
+    "upgrade",
+    "x-accel-buffering",
+    "x-accel-charset",
+    "x-accel-limit-rate",
+    "x-accel-redirect",
+    "x-cache",
+    "x-forwarded-proto",
+    "x-real-ip",
+    "content-length",
+    "host",
+    "transfer-encoding",
+    "via"
+];
+const ignoredHeaderPrefixes = ["x-amz-cf-", "x-amzn-", "x-edge-"];
+function isIgnoredHeader(name) {
+    const lowerCaseName = name.toLowerCase();
+    for (const prefix of ignoredHeaderPrefixes) {
+        if (lowerCaseName.startsWith(prefix)) {
+            return true;
+        }
+    }
+    return ignoredHeaders.includes(lowerCaseName);
+}
+async function createExternalRewriteResponse(customRewrite, req, res, body) {
+    const { default: fetch } = await Promise.resolve().then(function () { return require('./index-9e574644.js'); });
+    // Set request headers
+    const reqHeaders = {};
+    Object.assign(reqHeaders, req.headers);
+    // Delete host header otherwise request may fail due to host mismatch
+    if (reqHeaders.hasOwnProperty("host")) {
+        delete reqHeaders.host;
+    }
+    let fetchResponse;
+    if (body) {
+        const decodedBody = Buffer.from(body, "base64").toString("utf8");
+        fetchResponse = await fetch(customRewrite, {
+            headers: reqHeaders,
+            method: req.method,
+            body: decodedBody,
+            compress: false,
+            redirect: "manual"
+        });
+    }
+    else {
+        fetchResponse = await fetch(customRewrite, {
+            headers: reqHeaders,
+            method: req.method,
+            compress: false,
+            redirect: "manual"
+        });
+    }
+    for (const [name, val] of fetchResponse.headers.entries()) {
+        if (!isIgnoredHeader(name)) {
+            res.setHeader(name, val);
+        }
+    }
+    res.statusCode = fetchResponse.status;
+    res.end(await fetchResponse.buffer());
+}
 
 /**
  * Tokenize input string.
@@ -601,18 +678,19 @@ function flags(options) {
 function regexpToRegexp(path, keys) {
     if (!keys)
         return path;
-    // Use a negative lookahead to match only capturing groups.
-    var groups = path.source.match(/\((?!\?)/g);
-    if (groups) {
-        for (var i = 0; i < groups.length; i++) {
-            keys.push({
-                name: i,
-                prefix: "",
-                suffix: "",
-                modifier: "",
-                pattern: ""
-            });
-        }
+    var groupsRegex = /\((?:\?<(.*?)>)?(?!\?)/g;
+    var index = 0;
+    var execResult = groupsRegex.exec(path.source);
+    while (execResult) {
+        keys.push({
+            // Use parenthesized substring match if available, index otherwise
+            name: execResult[1] || index++,
+            prefix: "",
+            suffix: "",
+            modifier: "",
+            pattern: ""
+        });
+        execResult = groupsRegex.exec(path.source);
     }
     return path;
 }
@@ -703,6 +781,49 @@ function pathToRegexp(path, keys, options) {
     return stringToRegexp(path, keys, options);
 }
 
+function addDefaultLocaleToPath(path, routesManifest, forceLocale = null) {
+    if (routesManifest.i18n) {
+        const defaultLocale = forceLocale !== null && forceLocale !== void 0 ? forceLocale : routesManifest.i18n.defaultLocale;
+        const locales = routesManifest.i18n.locales;
+        const basePath = path.startsWith(routesManifest.basePath)
+            ? routesManifest.basePath
+            : "";
+        // If prefixed with a locale, return that path
+        for (const locale of locales) {
+            if (path === `${basePath}/${locale}` ||
+                path.startsWith(`${basePath}/${locale}/`)) {
+                return typeof forceLocale === "string"
+                    ? path.replace(`${locale}/`, `${forceLocale}/`)
+                    : path;
+            }
+        }
+        // Otherwise, prefix with default locale
+        if (path === "/" || path === `${basePath}`) {
+            return `${basePath}/${defaultLocale}`;
+        }
+        else {
+            return path.replace(`${basePath}/`, `${basePath}/${defaultLocale}/`);
+        }
+    }
+    return path;
+}
+function dropLocaleFromPath(path, routesManifest) {
+    if (routesManifest.i18n) {
+        const locales = routesManifest.i18n.locales;
+        // If prefixed with a locale, return path without
+        for (const locale of locales) {
+            const prefix = `/${locale}`;
+            if (path === prefix) {
+                return "/";
+            }
+            if (path.startsWith(`${prefix}/`)) {
+                return `${path.slice(prefix.length)}`;
+            }
+        }
+    }
+    return path;
+}
+
 /**
  Provides matching capabilities to support custom redirects, rewrites, and headers.
  */
@@ -751,38 +872,231 @@ function compileDestination(destination, params) {
         return null;
     }
 }
+const matchDynamic = (uri, routes) => {
+    for (const { file, regex } of routes) {
+        const re = new RegExp(regex, "i");
+        if (re.test(uri)) {
+            return file;
+        }
+    }
+};
+
+const getCustomHeaders = (uri, routesManifest) => {
+    const localized = addDefaultLocaleToPath(uri, routesManifest);
+    const headers = {};
+    for (const headerData of routesManifest.headers) {
+        if (!matchPath(localized, headerData.source)) {
+            continue;
+        }
+        for (const { key, value } of headerData.headers) {
+            if (key) {
+                // Header overriding behavior as per:
+                // https://nextjs.org/docs/api-reference/next.config.js/headers
+                headers[key.toLowerCase()] = [{ key, value }];
+            }
+        }
+    }
+    return headers;
+};
+const setCustomHeaders = (event, routesManifest) => {
+    var _a;
+    const [uri] = ((_a = event.req.url) !== null && _a !== void 0 ? _a : "").split("?");
+    const headers = getCustomHeaders(uri, routesManifest);
+    for (const [{ key, value }] of Object.values(headers)) {
+        if (key) {
+            event.res.setHeader(key, value);
+        }
+    }
+};
+const setHeadersFromRoute = (event, route) => {
+    var _a;
+    for (const [key, headers] of Object.entries(route.headers || [])) {
+        const keys = headers.map(({ key }) => key);
+        const values = headers.map(({ value }) => value).join(";");
+        if (values) {
+            event.res.setHeader((_a = keys[0]) !== null && _a !== void 0 ? _a : key, values);
+        }
+    }
+};
+
+const notFound = (event) => {
+    event.res.statusCode = 404;
+    event.res.statusMessage = "Not Found";
+    event.res.end("Not Found");
+};
+
+const redirect = (event, route) => {
+    setHeadersFromRoute(event, route);
+    event.res.statusCode = route.status;
+    event.res.statusMessage = route.statusDescription;
+    event.res.end();
+};
+
+const toRequest = (event) => {
+    var _a;
+    const [uri, querystring] = ((_a = event.req.url) !== null && _a !== void 0 ? _a : "").split("?");
+    const headers = {};
+    for (const [key, value] of Object.entries(event.req.headers)) {
+        if (value && Array.isArray(value)) {
+            headers[key.toLowerCase()] = value.map((value) => ({ key, value }));
+        }
+        else if (value) {
+            headers[key.toLowerCase()] = [{ key, value }];
+        }
+    }
+    return {
+        headers,
+        querystring,
+        uri
+    };
+};
+
+const normalise = (uri, routesManifest) => {
+    const { basePath, i18n } = routesManifest;
+    if (basePath) {
+        if (uri.startsWith(basePath)) {
+            uri = uri.slice(basePath.length);
+        }
+        else {
+            // basePath set but URI does not start with basePath, return 404
+            if (i18n === null || i18n === void 0 ? void 0 : i18n.defaultLocale) {
+                return `/${i18n.defaultLocale}/404`;
+            }
+            else {
+                return "/404";
+            }
+        }
+    }
+    // Remove trailing slash for all paths
+    if (uri.endsWith("/")) {
+        uri = uri.slice(0, -1);
+    }
+    // Empty path should be normalised to "/" as there is no Next.js route for ""
+    return uri === "" ? "/" : uri;
+};
 
 /**
- * Get the redirect of the given path, if it exists. Otherwise return null.
+ * Get the rewrite of the given path, if it exists.
  * @param path
  * @param routesManifest
  */
-function getRedirectPath(path, routesManifest) {
-    const redirects = routesManifest.redirects;
-    for (const redirect of redirects) {
-        const match = matchPath(path, redirect.source);
-        if (match) {
-            const compiledDestination = compileDestination(redirect.destination, match.params);
-            if (!compiledDestination) {
-                return null;
+function getRewritePath(uri, routesManifest) {
+    const path = addDefaultLocaleToPath(uri, routesManifest);
+    const rewrites = routesManifest.rewrites;
+    for (const rewrite of rewrites) {
+        const match = matchPath(path, rewrite.source);
+        if (!match) {
+            continue;
+        }
+        const params = match.params;
+        const destination = compileDestination(rewrite.destination, params);
+        if (!destination) {
+            return;
+        }
+        // Pass unused params to destination
+        // except nextInternalLocale param since it's already in path prefix
+        const querystring = Object.keys(params)
+            .filter((key) => key !== "nextInternalLocale")
+            .filter((key) => !rewrite.destination.endsWith(`:${key}`) &&
+            !rewrite.destination.includes(`:${key}/`))
+            .map((key) => {
+            const param = params[key];
+            if (typeof param === "string") {
+                return `${key}=${param}`;
             }
+            else {
+                return param.map((val) => `${key}=${val}`).join("&");
+            }
+        })
+            .filter((key) => key)
+            .join("&");
+        if (querystring) {
+            const separator = destination.includes("?") ? "&" : "?";
+            return `${destination}${separator}${querystring}`;
+        }
+        return destination;
+    }
+}
+function isExternalRewrite(customRewrite) {
+    return (customRewrite.startsWith("http://") || customRewrite.startsWith("https://"));
+}
+
+const handleApiReq = (uri, manifest, routesManifest, isRewrite) => {
+    const { apis } = manifest;
+    const normalisedUri = normalise(uri, routesManifest);
+    const nonDynamic = apis.nonDynamic[normalisedUri];
+    if (nonDynamic) {
+        return {
+            isApi: true,
+            page: nonDynamic
+        };
+    }
+    const rewrite = !isRewrite && getRewritePath(uri, routesManifest);
+    if (rewrite) {
+        // Rewrites include locales even for api routes
+        const apiRewrite = dropLocaleFromPath(rewrite, routesManifest);
+        const [path, querystring] = apiRewrite.split("?");
+        if (isExternalRewrite(path)) {
             return {
-                redirectPath: compiledDestination,
-                statusCode: redirect.statusCode
+                isExternal: true,
+                path,
+                querystring
+            };
+        }
+        const route = handleApiReq(path, manifest, routesManifest, true);
+        if (route) {
+            return {
+                ...route,
+                querystring
+            };
+        }
+        return route;
+    }
+    const dynamic = matchDynamic(normalisedUri, apis.dynamic);
+    if (dynamic) {
+        return {
+            isApi: true,
+            page: dynamic
+        };
+    }
+};
+
+function getUnauthenticatedResponse(authorizationHeaders, authentication) {
+    var _a;
+    if (authentication && authentication.username && authentication.password) {
+        const validAuth = "Basic " +
+            Buffer.from(authentication.username + ":" + authentication.password).toString("base64");
+        if (!authorizationHeaders || ((_a = authorizationHeaders[0]) === null || _a === void 0 ? void 0 : _a.value) !== validAuth) {
+            return {
+                isUnauthorized: true,
+                status: 401,
+                statusDescription: "Unauthorized",
+                body: "Unauthorized",
+                headers: {
+                    "www-authenticate": [{ key: "WWW-Authenticate", value: "Basic" }]
+                }
             };
         }
     }
-    return null;
 }
+
 /**
- * Create a redirect response with the given status code for CloudFront.
+ * Create a redirect response with the given status code
  * @param uri
  * @param querystring
  * @param statusCode
  */
 function createRedirectResponse(uri, querystring, statusCode) {
-    const location = querystring ? `${uri}?${querystring}` : uri;
-    const status = statusCode.toString();
+    let location;
+    // Properly join query strings
+    if (querystring) {
+        const [uriPath, uriQuery] = uri.split("?");
+        location = `${uriPath}?${querystring}${uriQuery ? `&${uriQuery}` : ""}`;
+    }
+    else {
+        location = uri;
+    }
+    const status = statusCode;
     const statusDescription = http.STATUS_CODES[status];
     const refresh = statusCode === 308
         ? [
@@ -794,8 +1108,9 @@ function createRedirectResponse(uri, querystring, statusCode) {
         ]
         : [];
     return {
+        isRedirect: true,
         status: status,
-        statusDescription: statusDescription,
+        statusDescription: statusDescription || "",
         headers: {
             location: [
                 {
@@ -810,124 +1125,174 @@ function createRedirectResponse(uri, querystring, statusCode) {
 /**
  * Get a domain redirect such as redirecting www to non-www domain.
  * @param request
- * @param buildManifest
+ * @param manifest
  */
-function getDomainRedirectPath(request, buildManifest) {
+function getDomainRedirectPath(request, manifest) {
     const hostHeaders = request.headers["host"];
     if (hostHeaders && hostHeaders.length > 0) {
         const host = hostHeaders[0].value;
-        const domainRedirects = buildManifest.domainRedirects;
+        const domainRedirects = manifest.domainRedirects;
         if (domainRedirects && domainRedirects[host]) {
             return `${domainRedirects[host]}${request.uri}`;
         }
     }
-    return null;
 }
-
 /**
- * Get the rewrite of the given path, if it exists. Otherwise return null.
+ * Get the redirect of the given path, if it exists.
  * @param path
- * @param routesManifest
+ * @param manifest
  */
-function getRewritePath(path, routesManifest) {
-    const rewrites = routesManifest.rewrites;
-    for (const rewrite of rewrites) {
-        const match = matchPath(path, rewrite.source);
+function getRedirectPath(request, routesManifest) {
+    var _a;
+    const path = addDefaultLocaleToPath(request.uri, routesManifest);
+    const redirects = (_a = routesManifest.redirects) !== null && _a !== void 0 ? _a : [];
+    for (const redirect of redirects) {
+        const match = matchPath(path, redirect.source);
         if (match) {
-            return compileDestination(rewrite.destination, match.params);
+            const compiledDestination = compileDestination(redirect.destination, match.params);
+            if (!compiledDestination) {
+                return null;
+            }
+            return {
+                path: compiledDestination,
+                statusCode: redirect.statusCode
+            };
         }
     }
     return null;
 }
 
-function addHeadersToResponse(path, response, routesManifest) {
-    // Add custom headers to response
-    if (response.headers) {
-        for (const headerData of routesManifest.headers) {
-            const match = matchPath(path, headerData.source);
-            if (match) {
-                for (const header of headerData.headers) {
-                    if (header.key && header.value) {
-                        const headerLowerCase = header.key.toLowerCase();
-                        response.headers[headerLowerCase] = [
-                            {
-                                key: headerLowerCase,
-                                value: header.value
-                            }
-                        ];
-                    }
-                }
-            }
+const handleAuth = (req, manifest) => {
+    const { headers } = req;
+    return getUnauthenticatedResponse(headers.authorization, manifest.authentication);
+};
+const handleCustomRedirects = (req, routesManifest) => {
+    const redirect = getRedirectPath(req, routesManifest);
+    if (redirect) {
+        const { path, statusCode } = redirect;
+        return createRedirectResponse(path, req.querystring, statusCode);
+    }
+};
+const handleDomainRedirects = (req, manifest) => {
+    const path = getDomainRedirectPath(req, manifest);
+    if (path) {
+        return createRedirectResponse(path, req.querystring, 308);
+    }
+};
+/*
+ * Routes:
+ * - auth
+ * - redirects
+ * - api routes
+ * - rewrites (external and api)
+ */
+const routeApi = (req, manifest, routesManifest) => {
+    const auth = handleAuth(req, manifest);
+    if (auth) {
+        return auth;
+    }
+    const redirect = handleDomainRedirects(req, manifest) ||
+        handleCustomRedirects(req, routesManifest);
+    if (redirect) {
+        return redirect;
+    }
+    return handleApiReq(req.uri, manifest, routesManifest);
+};
+
+const unauthorized = (event, route) => {
+    setHeadersFromRoute(event, route);
+    event.res.statusCode = route.status;
+    event.res.statusMessage = route.statusDescription;
+    event.res.end();
+};
+
+/*
+ * Handles api routes.
+ *
+ * Returns ExternalRoute for handling in the caller.
+ *
+ * If return is void, the response has already been generated in
+ * event.res/event.responsePromise which the caller should wait on.
+ */
+const handleApi = async (event, manifest, routesManifest, getPage) => {
+    const request = toRequest(event);
+    const route = routeApi(request, manifest, routesManifest);
+    if (!route) {
+        return notFound(event);
+    }
+    if (route.querystring) {
+        event.req.url = `${event.req.url}${request.querystring ? "&" : "?"}${route.querystring}`;
+    }
+    if (route.isApi) {
+        const { page } = route;
+        setCustomHeaders(event, routesManifest);
+        getPage(page).default(event.req, event.res);
+        return;
+    }
+    if (route.isRedirect) {
+        return redirect(event, route);
+    }
+    if (route.isUnauthorized) {
+        return unauthorized(event, route);
+    }
+    // No if lets typescript check this is ExternalRoute
+    return route;
+};
+
+const blacklistedHeaders = [
+    "connection",
+    "expect",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "proxy-connection",
+    "trailer",
+    "upgrade",
+    "x-accel-buffering",
+    "x-accel-charset",
+    "x-accel-limit-rate",
+    "x-accel-redirect",
+    "x-cache",
+    "x-forwarded-proto",
+    "x-real-ip"
+];
+const blacklistedHeaderPrefixes = ["x-amz-cf-", "x-amzn-", "x-edge-"];
+function isBlacklistedHeader(name) {
+    const lowerCaseName = name.toLowerCase();
+    for (const prefix of blacklistedHeaderPrefixes) {
+        if (lowerCaseName.startsWith(prefix)) {
+            return true;
+        }
+    }
+    return blacklistedHeaders.includes(lowerCaseName);
+}
+function removeBlacklistedHeaders(headers) {
+    for (const header in headers) {
+        if (isBlacklistedHeader(header)) {
+            delete headers[header];
         }
     }
 }
 
 // @ts-ignore
-const basePath = RoutesManifestJson__default['default'].basePath;
-const normaliseUri = (uri) => {
-    if (uri.startsWith(basePath)) {
-        uri = uri.slice(basePath.length);
-    }
-    return uri;
-};
-const router = (manifest) => {
-    const { apis: { dynamic, nonDynamic } } = manifest;
-    return (path) => {
-        if (basePath && path.startsWith(basePath))
-            path = path.slice(basePath.length);
-        if (nonDynamic[path]) {
-            return nonDynamic[path];
-        }
-        for (const route in dynamic) {
-            const { file, regex } = dynamic[route];
-            const re = new RegExp(regex, "i");
-            const pathMatchesRoute = re.test(path);
-            if (pathMatchesRoute) {
-                return file;
-            }
-        }
-        return null;
-    };
-};
-const handler$1 = async (event) => {
+const handler = async (event) => {
+    var _a;
     const request = event.Records[0].cf.request;
     const routesManifest = RoutesManifestJson__default['default'];
     const buildManifest = manifest__default['default'];
-    // Handle domain redirects e.g www to non-www domain
-    const domainRedirect = getDomainRedirectPath(request, buildManifest);
-    if (domainRedirect) {
-        return createRedirectResponse(domainRedirect, request.querystring, 308);
-    }
-    // Handle custom redirects
-    const customRedirect = getRedirectPath(request.uri, routesManifest);
-    if (customRedirect) {
-        return createRedirectResponse(customRedirect.redirectPath, request.querystring, customRedirect.statusCode);
-    }
-    // Handle custom rewrites but not for non-dynamic routes
-    let isNonDynamicRoute = buildManifest.apis.nonDynamic[normaliseUri(request.uri)];
-    if (!isNonDynamicRoute) {
-        const customRewrite = getRewritePath(request.uri, routesManifest);
-        if (customRewrite) {
-            request.uri = customRewrite;
-        }
-    }
-    const uri = normaliseUri(request.uri);
-    const pagePath = router(manifest__default['default'])(uri);
-    if (!pagePath) {
-        return {
-            status: "404"
-        };
-    }
-    // eslint-disable-next-line
-    const page = require(`./${pagePath}`);
     const { req, res, responsePromise } = nextAwsCloudfront(event.Records[0].cf, {
         enableHTTPCompression: buildManifest.enableHTTPCompression
     });
-    page.default(req, res);
+    const external = await handleApi({ req, res, responsePromise }, buildManifest, routesManifest, (pagePath) => require(`./${pagePath}`));
+    if (external) {
+        const { path } = external;
+        await createExternalRewriteResponse(path, req, res, (_a = request.body) === null || _a === void 0 ? void 0 : _a.data);
+    }
     const response = await responsePromise;
-    // Add custom headers before returning response
-    addHeadersToResponse(request.uri, response, routesManifest);
+    if (response.headers) {
+        removeBlacklistedHeaders(response.headers);
+    }
     return response;
 };
 
-exports.handler = handler$1;
+exports.handler = handler;
