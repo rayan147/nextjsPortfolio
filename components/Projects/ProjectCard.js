@@ -8,13 +8,15 @@ import CardMedia from '@material-ui/core/CardMedia';
 import {Box,Button} from '@material-ui/core';
 import Typography from '@material-ui/core/Typography';
 import {GoMarkGithub } from "react-icons/go";
+import Grid from '@material-ui/core/Grid'
 
 const useStyles = makeStyles({
   root: {
-    maxWidth: 645,
+    maxWidth: 345,
+    minheight: '30vw'
   },
   media: {
-    height: 140,
+    height: 200,
   },
  
 });
@@ -31,9 +33,13 @@ const techSkill =(tech,index)=><Box  p={.5} mx={1}key={index}>{tech}</Box>
 
 
   return (
-    <Card className={classes.root}>
+  <>
+        <a href={demo} target="_blank" >
+    <Card style={{display: 'flex', justifyContent: 'space-between', flexDirection: 'column',height:'450px',width
+  :'300px'}}>
       <CardActionArea>
         <CardMedia
+          component="img"
           className={classes.media}
           image={img}
           title={name}
@@ -68,6 +74,11 @@ const techSkill =(tech,index)=><Box  p={.5} mx={1}key={index}>{tech}</Box>
      
    
     </Card>
+    </a>
+   </>
   );
 }
+  
+
+
 export default React.memo(ProjectCard)

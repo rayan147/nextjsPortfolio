@@ -45,23 +45,31 @@ const  Project = () =>{
 
   
   return (
-    <Grid container justify="center">  
-      <Grid>
-       <Title title="PROJECTS"/>
-      </Grid> 
-      <Grid container justify="center" className={classes.root}   alignItems="center" direction="row" spacing={5}>
-        <Grid item>
-          <Paper className={classes.paper} >
-            <ProjectCard  {...cryptoboard}/>
-          </Paper>
-        </Grid>
-       <Grid item>
-         <Paper className={classes.paper} >
-            <ProjectCard  {...tasktracker}/>
-        </Paper>
-       </Grid>  
+    <>   
+    <Grid container  alignItems="center" justifyContent="center">
+      <Grid item  style={{display: 'flex'}}>
+        <Title title='PROJECTS'/> 
       </Grid>
+      
     </Grid>
+   
+        <Grid container alignItems="center" justifyContent="center" spacing={4}>
+         
+      <Grid item style={{display: 'flex'}}>
+          <ProjectCard  {...cryptoboard}/>
+      </Grid>
+      <Grid item style={{display: 'flex'}}>
+      <ProjectCard  {...tasktracker}/>
+      </Grid>
+      <Grid item style={{display: 'flex'}}>
+      <ProjectCard  {...tasktracker}/>
+      </Grid>
+      </Grid>
+          
+            
+           
+    
+    </>
     
   );
 }

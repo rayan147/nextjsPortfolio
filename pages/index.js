@@ -8,14 +8,17 @@ import Footer from '../layout/Footer'
 
 
 
+
 export default function Home() {
   return (
     <Container>
       <main>
+
      <Hero/>
      <Projects/>
+    
      <About/> 
-     <ViewMyResume/>
+     <ViewMyResume/> 
      </main>
      <Footer/>
     </Container>
